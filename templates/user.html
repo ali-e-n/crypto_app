@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Crypto Forecast Viewer</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="bg-dark text-light pt-0 pb-3">
+    <!-- Header -->
+    <header
+      class="container-fluid d-flex justify-content-between align-items-center mb-4 pb-2 bg-secondary"
+    >
+      <div class="d-flex align-items-center ps-3">
+        <img src="/static/logo.png" width="80" height="60" class="me-2" />
+      </div>
+      <div class="pe-3">
+        <a href="{{ url_for('login') }}" class="btn btn-outline-light">Login</a>
+      </div>
+    </header>
+
+    <div class="container">
+      <!-- Crypto Tabs -->
+      <ul class="nav nav-tabs mb-4 flex-wrap" id="cryptoTabs" role="tablist">
+        {% set symbols = { 'BTC-USD': 'Bitcoin (BTC)', 'ETH-USD': 'Ethereum
+        (ETH)', 'XRP-USD': 'Ripple (XRP)', 'BNB-USD': 'BNB', 'SOL-USD': 'Solana
+        (SOL)', 'ADA-USD': 'Cardano (ADA)', 'AVAX-USD': 'Avalanche (AVAX)',
+        'DOGE-USD': 'Dogecoin (DOGE)', 'DOT-USD': 'Polkadot (DOT)' } %} {% for
+        sym, label in symbols.items() %}
+        <li class="nav-item" role="presentation">
+          <a
+            class="nav-link {% if symbol == sym %}active{% endif %}"
+            href="?symbol={{ sym }}"
+            >{{ label }}</a
+          >
+        </li>
+        {% endfor %}
+      </ul>
+
+
+
+
+      <!-- Price Change Forecast -->
+      {% if forecast_summary %}
+      <div class="mt-5">
+        <h4>Price Change Forecast</h4>
+        <table class="table text-center table-bordered align-middle">
+          <thead class="table-light">
+            <tr>
+              <th></th>
+              {% for label in forecast_summary.keys() %}
+              <th>{{ label }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th>Predicted</th>
+              {% for val in price_pred.values() %}
+              <td>
+                {% if val not in ["-", None, ""] %} ${{ val }} {% else %}
+                <span class="text-muted">N/A</span>
+                {% endif %}
+              </td>
+              {% endfor %}
+            </tr>
+
+            <tr>
+              <th>Change</th>
+              {% for change in forecast_summary.values() %}
+              <td>
+                {% if change == "-" %} - {% elif change|float < 0 %}
+                <span class="text-danger">▼ {{ change }}%</span>
+                {% else %}
+                <span class="text-success">▲ {{ change }}%</span>
+                {% endif %}
+              </td>
+              {% endfor %}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+      <!-- ✅ Closing forecast_summary -->
+
+      {% if live_price %}
+      <div class="d-flex justify-content-start align-items-center mb-3 gap-2">
+        <h4 class="mb-0 fs-6">Current {{ symbol }} Price:</h4>
+        <span class="badge bg-light text-success fs-6"
+          >${{ "%.2f"|format(live_price) }}</span
+        >
+      </div>
+      {% endif %}
+
+      <!-- Flash Message -->
+      {% with messages = get_flashed_messages() %} {% if messages %}
+      <div class="alert alert-warning mt-3">{{ messages[0] }}</div>
+      {% endif %} {% endwith %}
+
+      <!-- Forecast Chart -->
+      {% if plot_data %}
+      <div class="mt-5">
+        <div class="d-flex justify-content-between align-items-center mb-3 gap-2 ">
+       <h3>
+  <img src="{{ icon_url }}" alt="{{ symbol }}" style="height: 40px; vertical-align: middle; margin-right: 8px;">
+  {{ symbol }}
+</h3>
+
+        <form method="get" class="mb-3 d-flex align-items-center gap-2">
+          <input type="hidden" name="symbol" value="{{ symbol }}">
+          <label for="interval" class="mb-0">Select Interval:</label>
+          <select name="interval" id="interval" class="form-select w-auto" onchange="this.form.submit()">
+            {% for option in ['1h', '1d', '7d', '14d', '30d', '1y'] %}
+            <option value="{{ option }}" {% if interval_selected == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </form>
+
+        </div>
+        <div id="forecast-chart" style="height: 600px"></div>
+      </div>
+
+      <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+      <script type="text/javascript">
+        document.addEventListener("DOMContentLoaded", function () {
+          const timestamps = JSON.parse(
+            '{{ plot_data["timestamps"] | tojson | safe }}'
+          );
+          const actual = JSON.parse(
+            '{{ plot_data["actual"] | tojson | safe }}'
+          );
+          const predicted = JSON.parse(
+            '{{ plot_data["predicted"] | tojson | safe }}'
+          );
+
+          const trace1 = {
+            x: timestamps,
+            y: actual,
+            name: "Actual",
+            mode: "lines+markers",
+            line: { color: "green" },
+          };
+
+          const trace2 = {
+            x: timestamps,
+            y: predicted,
+            name: "Predicted",
+            mode: "lines+markers",
+            line: { color: "orange" },
+          };
+
+          const layout = {
+            title: {
+              text: "Forecast Price vs Time",
+              font: { color: "#ffffff" },
+            },
+            paper_bgcolor: "transparent",
+            plot_bgcolor: "transparent",
+            font: { color: "#ffffff" },
+            xaxis: { title: "Timestamp" },
+            yaxis: { title: "Price (USD)" },
+          };
+
+          Plotly.newPlot("forecast-chart", [trace1, trace2], layout);
+        });
+      </script>
+      {% endif %}
+
+      <!-- Download CSV -->
+      {% if plot_data %}
+      <div class="text-end mt-3">
+      <a
+  href="{{ url_for('download_csv', symbol=symbol, interval=interval_selected) }}"
+  class="btn btn-success"
+>
+  ⬇️ Download Forecast CSV
+</a>
+
+      </div>
+      {% endif %}
+
+      <!-- Metrics -->
+      {% if metrics %}
+      <div class="mt-4">
+        <h4>Metrics</h4>
+        <ul>
+          <li>MAE: {{ metrics['MAE'] }}</li>
+          <li>RMSE: {{ metrics['RMSE'] }}</li>
+          {% if metrics['Accuracy (%)'] %}
+          <li>Accuracy: {{ metrics['Accuracy (%)'] }}%</li>
+          {% endif %}
+        </ul>
+      </div>
+      {% endif %}
+
+      <!-- Forecast Table -->
+      {% if forecast_rows %}
+      <div class="mt-5">
+        <h4>Historical Data Forecast Table</h4>
+        <table
+          class="table table-bordered table-striped text-center align-middle"
+        >
+          <thead class="table-light">
+            <tr>
+              <th>#</th>
+              <th>Timestamp</th>
+              <th>Actual</th>
+              <th>Predicted</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in forecast_rows %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td>{{ row['Timestamp'] }}</td>
+              <td>{{ row['Actual'] }}</td>
+              <td>{{ row['Predicted'] }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>

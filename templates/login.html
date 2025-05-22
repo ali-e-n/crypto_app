@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Admin Login</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        background-image: url("https://plus.unsplash.com/premium_photo-1714618942735-5f1585da8b88?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTN8fGNyeXB0b2N1cnJlbmN5fGVufDB8MHwwfHx8MA%3D%3D"); /* Crypto style */
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        height: 100vh;
+        color: white;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .login-box {
+        background-color: rgba(0, 0, 0, 0.8);
+        padding: 40px;
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+        width: 100%;
+        max-width: 400px;
+      }
+
+      .login-box h2 {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      input.form-control {
+        background-color: #131212;
+        color: white;
+        border: 1px solid #444;
+      }
+
+      input.form-control::placeholder {
+        color: #aaa;
+      }
+
+      .btn-primary {
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="login-box">
+      <h2>Admin Login</h2>
+      <form method="post">
+        <div class="mb-3">
+          <input
+            type="text"
+            name="username"
+            class="form-control"
+            placeholder="Username"
+            required
+          />
+        </div>
+        <div class="mb-3">
+          <input
+            type="password"
+            name="password"
+            class="form-control"
+            placeholder="Password"
+            required
+          />
+        </div>
+        <button type="submit" class="btn btn-primary">Login</button>
+      </form>
+    </div>
+  </body>
+</html>

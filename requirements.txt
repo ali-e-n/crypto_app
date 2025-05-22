@@ -1,0 +1,7 @@
+Flask
+Flask-Login
+yfinance
+tensorflow
+pandas
+matplotlib
+plotly
