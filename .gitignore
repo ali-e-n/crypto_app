@@ -5,9 +5,5 @@ venv/
 .env
 *.log
 *.mkv
-*.zip
-*.tar
-*.png
-*.jpg
-*.jpeg
+
 .DS_Store
