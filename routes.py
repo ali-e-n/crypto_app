@@ -9,6 +9,9 @@ from datetime import timedelta
 import numpy as np
 import yfinance as yf
 from model.lstm_model import run_lstm_model_logs
+from model.lstm_seq2seq import run_forecast
+from queue import Queue
+from threading import Thread
 
 BASE_FORECAST_PATH = "static/forecasts"
 
@@ -28,6 +31,15 @@ def setup_routes(app, users):
             "XRP": "ripple.png",
             "BNB": "bnb.png",  # Add more as needed
         }
+        steps_map = {
+            "1h": 24,
+            "1d": 7,
+            "7d": 5,
+            "14d": 4,
+            "30d": 5,
+            "1y": 7  # or however many months left in year
+        }
+
 
         symbol_prefix = symbol.split("-")[0]
         icon_filename = symbol_icon_map.get(symbol_prefix, "default.png")
@@ -103,7 +115,11 @@ def setup_routes(app, users):
                 else:
                     df["Timestamp"] = pd.to_datetime(df["Timestamp"]).dt.strftime('%Y-%m-%d')
 
-                df = df.tail(20).reset_index(drop=True)
+                if interval_selected in ["7d", "14d", "30d", "1y"]:
+                    df = df.tail(steps_map[interval_selected]).reset_index(drop=True)
+                else:
+                    df = df.tail(20).reset_index(drop=True)
+
                 forecast_rows = df.to_dict(orient="records")
         else:
             flash("Forecast data not available yet for the selected currency.")
@@ -272,11 +288,53 @@ def setup_routes(app, users):
         logout_user()
         return redirect(url_for("login"))
 
+    from flask import stream_with_context
+
     @app.route("/stream_logs")
     def stream_logs():
         symbol = request.args.get("symbol", "BTC-USD")
-        interval = request.args.get("interval", "1d")
-        return Response(
-            stream_with_context(run_lstm_model_logs(symbol=symbol, interval=interval)),
-            content_type="text/event-stream"
-        )
+
+        def generate_logs():
+            log_queue = Queue()
+
+            def log_callback(msg):
+                log_queue.put(f"data: {msg}\n\n")
+
+            def run_forecast_thread():
+                forecast_targets = {
+                    "1h": {"interval": "1h", "steps": 24},
+                    "1d": {"interval": "1d", "steps": 7},
+                    "7d": {"interval": "1d", "steps": 14},
+                    "14d": {"interval": "1d", "steps": 30},
+                    "30d": {"interval": "1d", "steps": 90},
+                    "1y": {"interval": "1d", "steps": 365},
+                }
+
+                for label, cfg in forecast_targets.items():
+                    log_callback(f"▶ Running model for {symbol} - {label}...")
+                    try:
+                        from model.lstm_seq2seq import run_forecast
+                        run_forecast(
+                            symbol=symbol,
+                            interval=cfg["interval"],
+                            steps=cfg["steps"],
+                            window_size=60,
+                            epochs=10,
+                            log_callback=log_callback,
+                            label=label, 
+                        )
+                        log_callback(f"✅ Forecast for {label} completed.")
+                    except Exception as e:
+                        log_callback(f"❌ {label} Error: {str(e)}")
+
+                log_queue.put(None)  # End signal
+
+            Thread(target=run_forecast_thread).start()
+
+            while True:
+                msg = log_queue.get()
+                if msg is None:
+                    break
+                yield msg
+
+        return Response(generate_logs(), mimetype="text/event-stream")

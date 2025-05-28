@@ -194,3 +194,5 @@ def run_lstm_model_logs(symbol="BTC-USD", interval="ALL", window_size=60, epochs
 
         except Exception as e:
             yield f"data: ❌ {label} Error: {str(e)}\n\n"
+
+
