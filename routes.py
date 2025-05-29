@@ -328,8 +328,8 @@ def setup_routes(app, users):
                             symbol=symbol,
                             interval=cfg["interval"],
                             steps=cfg["steps"],
-                            window_size=500,
-                            epochs=100,
+                            window_size=300,
+                            epochs=20,
                             log_callback=log_callback,
                             label=label, 
                         )

@@ -1,1 +1,1 @@
-{"MAE": 423.38, "RMSE": 480.43, "PercentChange": -26.82}
+{"MAE": 411.74, "MSE": 296648.04, "RMSE": 544.65, "DirectionalAccuracy": 48.19, "PercentChange": -34.01, "FeaturesUsed": ["Close", "EMA", "RSI", "MACD", "Volume"]}
