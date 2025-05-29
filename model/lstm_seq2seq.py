@@ -48,8 +48,7 @@ def fetch_data(symbol="BTC-USD", interval="1d", start="2015-01-01", force_refres
         else:
             df = yf.download(symbol, start=start, interval=interval, auto_adjust=False)
 
-
-    df = df[['Close', 'Volume']].dropna()
+    df = df[['Open', 'High', 'Low', 'Close', 'Volume']].dropna()
     df = add_indicators(df)
     return df
 
@@ -173,9 +172,19 @@ def run_forecast(symbol="BTC-USD", interval="1d",  label="7d", steps=7, window_s
         "Predicted": future_preds
     })
 
-    # Combine historical + future into final forecast
     full_df = pd.concat([hist_df, future_df])
     full_df.set_index("Timestamp", inplace=True)
+
+    # ✅ Inject OHLC data for 1h interval
+    if interval == "1h":
+        try:
+            ohlc_cols = df[['Open', 'High', 'Low', 'Close']].copy()
+            ohlc_cols.index = pd.to_datetime(ohlc_cols.index)
+            full_df = full_df.merge(ohlc_cols, how="left", left_index=True, right_index=True)
+        except Exception as e:
+            print(f"[WARN] Could not inject OHLC columns: {e}")
+
+    # Save CSV
     full_df.to_csv(os.path.join(output_dir, "forecast.csv"))
 
     # Plot
@@ -194,6 +203,15 @@ def run_forecast(symbol="BTC-USD", interval="1d",  label="7d", steps=7, window_s
     mae = mean_absolute_error(actual_inverse[-valid_len:, 0], pred_inverse[-valid_len:, 0])
     mse = mean_squared_error(actual_inverse[-valid_len:, 0], pred_inverse[-valid_len:, 0])
     rmse = np.sqrt(mse)
+    # ✅ Directional accuracy (up/down movement match)
+    try:
+        direction_matches = np.sum(
+            np.sign(np.diff(actual_inverse[-valid_len:, 0])) == np.sign(np.diff(pred_inverse[-valid_len:, 0]))
+        )
+        directional_accuracy = round((direction_matches / (valid_len - 1)) * 100, 2)
+    except Exception:
+        directional_accuracy = None
+
 
     # ✅ Calculate percent change for UI
     try:
@@ -207,8 +225,14 @@ def run_forecast(symbol="BTC-USD", interval="1d",  label="7d", steps=7, window_s
     with open(os.path.join(output_dir, "metrics.json"), "w") as f:
         json.dump({
             "MAE": round(mae, 2),
+            "MSE": round(mse, 2),
             "RMSE": round(rmse, 2),
-            "PercentChange": percent_change
+            "DirectionalAccuracy": directional_accuracy,
+            "PercentChange": percent_change,
+            "FeaturesUsed": ["Close", "EMA", "RSI", "MACD", "Volume"]
         }, f)
+
+
+
 
     print(f"[✅] Forecast complete — MAE: {round(mae, 2)} | RMSE: {round(rmse, 2)} | Δ {percent_change}%")

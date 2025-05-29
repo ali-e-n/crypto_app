@@ -110,6 +110,16 @@ def setup_routes(app, users):
                     "predicted": df_plot["Predicted"].fillna('').tolist()
                 }
 
+                if interval_selected == "1h" and all(col in df_plot.columns for col in ['Open', 'High', 'Low', 'Close']):
+                    plot_data["candlestick"] = {
+                    "timestamps": df_plot["Timestamp"].tolist(),
+                    "open": df_plot["Open"].fillna('').tolist(),
+                    "high": df_plot["High"].fillna('').tolist(),
+                    "low": df_plot["Low"].fillna('').tolist(),
+                    "close": df_plot["Close"].fillna('').tolist()
+                }
+
+
                 if interval_selected == "1h":
                     df["Timestamp"] = pd.to_datetime(df["Timestamp"]).dt.strftime('%Y-%m-%d %H:%M')
                 else:
@@ -318,8 +328,8 @@ def setup_routes(app, users):
                             symbol=symbol,
                             interval=cfg["interval"],
                             steps=cfg["steps"],
-                            window_size=60,
-                            epochs=10,
+                            window_size=500,
+                            epochs=100,
                             log_callback=log_callback,
                             label=label, 
                         )

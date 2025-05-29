@@ -123,49 +123,80 @@
       </div>
 
       <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-      <script type="text/javascript">
-        document.addEventListener("DOMContentLoaded", function () {
-          const timestamps = JSON.parse(
-            '{{ plot_data["timestamps"] | tojson | safe }}'
-          );
-          const actual = JSON.parse(
-            '{{ plot_data["actual"] | tojson | safe }}'
-          );
-          const predicted = JSON.parse(
-            '{{ plot_data["predicted"] | tojson | safe }}'
-          );
+      <!-- Safely embed hasCandle as JSON -->
+<script id="has-candle-json" type="application/json">
+  {{ ("candlestick" in plot_data) | tojson }}
+</script>
 
-          const trace1 = {
-            x: timestamps,
-            y: actual,
-            name: "Actual",
-            mode: "lines+markers",
-            line: { color: "green" },
-          };
+<script id="candle-data" type="application/json">
+  {% if "candlestick" in plot_data %}{{ plot_data["candlestick"] | tojson }}{% else %}{}{% endif %}
+</script>
 
-          const trace2 = {
-            x: timestamps,
-            y: predicted,
-            name: "Predicted",
-            mode: "lines+markers",
-            line: { color: "orange" },
-          };
+<script type="text/javascript">
+  document.addEventListener("DOMContentLoaded", function () {
+    const interval = "{{ interval_selected }}";
+    const hasCandle = JSON.parse(document.getElementById("has-candle-json").textContent);
+    const timestamps = JSON.parse('{{ plot_data["timestamps"] | tojson | safe }}');
+    const actual = JSON.parse('{{ plot_data["actual"] | tojson | safe }}');
+    const predicted = JSON.parse('{{ plot_data["predicted"] | tojson | safe }}');
 
-          const layout = {
-            title: {
-              text: "Forecast Price vs Time",
-              font: { color: "#ffffff" },
-            },
-            paper_bgcolor: "transparent",
-            plot_bgcolor: "transparent",
-            font: { color: "#ffffff" },
-            xaxis: { title: "Timestamp" },
-            yaxis: { title: "Price (USD)" },
-          };
+    const layout = {
+      title: {
+        text: "Forecast Price vs Time",
+        font: { color: "#ffffff" },
+      },
+      paper_bgcolor: "transparent",
+      plot_bgcolor: "transparent",
+      font: { color: "#ffffff" },
+      xaxis: { title: "Timestamp" },
+      yaxis: { title: "Price (USD)" },
+    };
 
-          Plotly.newPlot("forecast-chart", [trace1, trace2], layout);
-        });
-      </script>
+    if (interval === "1h" && hasCandle) {
+      const ohlc = JSON.parse(document.getElementById("candle-data").textContent);
+
+      const candleTrace = {
+        x: ohlc.timestamps,
+        open: ohlc.open,
+        high: ohlc.high,
+        low: ohlc.low,
+        close: ohlc.close,
+        type: "candlestick",
+        name: "Candlestick",
+        increasing: { line: { color: "green" } },
+        decreasing: { line: { color: "red" } }
+      };
+
+      const predTrace = {
+        x: timestamps,
+        y: predicted,
+        name: "Predicted",
+        mode: "lines+markers",
+        line: { color: "orange" }
+      };
+
+      Plotly.newPlot("forecast-chart", [candleTrace, predTrace], layout);
+    } else {
+      const trace1 = {
+        x: timestamps,
+        y: actual,
+        name: "Actual",
+        mode: "lines+markers",
+        line: { color: "green" },
+      };
+
+      const trace2 = {
+        x: timestamps,
+        y: predicted,
+        name: "Predicted",
+        mode: "lines+markers",
+        line: { color: "orange" },
+      };
+
+      Plotly.newPlot("forecast-chart", [trace1, trace2], layout);
+    }
+  });
+</script>
       {% endif %}
 
       <!-- Download CSV -->
@@ -182,18 +213,23 @@
       {% endif %}
 
       <!-- Metrics -->
-      {% if metrics %}
-      <div class="mt-4">
-        <h4>Metrics</h4>
-        <ul>
-          <li>MAE: {{ metrics['MAE'] }}</li>
-          <li>RMSE: {{ metrics['RMSE'] }}</li>
-          {% if metrics['Accuracy (%)'] %}
-          <li>Accuracy: {{ metrics['Accuracy (%)'] }}%</li>
-          {% endif %}
-        </ul>
-      </div>
-      {% endif %}
+{% if metrics %}
+<div class="mt-10 bg-gray-900 rounded-2xl p-4 shadow-lg">
+  <h4 class="text-xl font-semibold text-white mb-4">📊 Model Metrics</h4>
+  <div class="grid grid-cols-2 gap-4 text-sm text-gray-200">
+    <div><strong>MAE:</strong> {{ metrics['MAE'] }}</div>
+    <div><strong>MSE:</strong> {{ metrics['MSE'] }}</div>
+    <div><strong>RMSE:</strong> {{ metrics['RMSE'] }}</div>
+    <div><strong>Directional Accuracy:</strong> {{ metrics['DirectionalAccuracy'] }}%</div>
+    <div><strong>Price Change:</strong> {{ metrics['PercentChange'] }}%</div>
+    {% if metrics['FeaturesUsed'] %}
+    <div class="col-span-2"><strong>Features:</strong> {{ metrics['FeaturesUsed'] | join(', ') }}</div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+
 
       <!-- Forecast Table -->
       {% if forecast_rows %}
